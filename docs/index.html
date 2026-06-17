@@ -1,246 +1,550 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="auto">
 <head>
     <meta charset="UTF-8" />
-    <title>Converta &ndash; Coordinate Cleaner</title>
+    <title>Converta — Coordinate Cleaner by maplumi</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Converta turns messy Excel longitude/latitude values — DMS, degrees-minutes, decimal degrees — into clean decimal degrees, entirely in your browser. A maplumi tool." />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%234f46e5' d='M16 2C10.5 2 6 6.5 6 12c0 7 10 18 10 18s10-11 10-18c0-5.5-4.5-10-10-10z'/%3E%3Ccircle cx='16' cy='12' r='4' fill='%23fff'/%3E%3C/svg%3E" />
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
-            color-scheme: light dark;
-            font-family: "Segoe UI", Roboto, sans-serif;
+            --bg-from: #eef2ff;
+            --bg-to: #e0f2fe;
+            --card-bg: rgba(255, 255, 255, 0.88);
+            --card-border: rgba(226, 232, 240, 0.9);
+            --shadow: 0 24px 60px rgba(30, 41, 90, 0.16);
+            --text: #0f172a;
+            --text-muted: #475569;
+            --heading: #1e2a52;
+            --primary: #4f46e5;
+            --primary-strong: #4338ca;
+            --primary-contrast: #ffffff;
+            --accent: #0ea5e9;
+            --surface: #ffffff;
+            --surface-2: #f8fafc;
+            --border: #e2e8f0;
+            --input-border: #cbd5e1;
+            --info-bg: rgba(14, 165, 233, 0.10);
+            --info-border: #0ea5e9;
+            --privacy-bg: rgba(79, 70, 229, 0.08);
+            --success: #16a34a;
+            --success-bg: rgba(22, 163, 74, 0.12);
+            --danger: #dc2626;
+            --danger-bg: rgba(220, 38, 38, 0.12);
+            --warn: #b45309;
+            --warn-bg: rgba(217, 119, 6, 0.14);
+            --highlight: rgba(79, 70, 229, 0.12);
+            --chip-bg: rgba(79, 70, 229, 0.10);
+            --focus-ring: rgba(79, 70, 229, 0.35);
         }
+        [data-theme="dark"] {
+            --bg-from: #0b1120;
+            --bg-to: #111c34;
+            --card-bg: rgba(30, 41, 59, 0.82);
+            --card-border: rgba(71, 85, 105, 0.6);
+            --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --heading: #f1f5f9;
+            --primary: #818cf8;
+            --primary-strong: #6366f1;
+            --primary-contrast: #0b1120;
+            --accent: #38bdf8;
+            --surface: #1e293b;
+            --surface-2: #172033;
+            --border: #334155;
+            --input-border: #475569;
+            --info-bg: rgba(56, 189, 248, 0.12);
+            --info-border: #38bdf8;
+            --privacy-bg: rgba(129, 140, 248, 0.14);
+            --success: #4ade80;
+            --success-bg: rgba(74, 222, 128, 0.16);
+            --danger: #f87171;
+            --danger-bg: rgba(248, 113, 113, 0.16);
+            --warn: #fbbf24;
+            --warn-bg: rgba(251, 191, 36, 0.16);
+            --highlight: rgba(129, 140, 248, 0.20);
+            --chip-bg: rgba(129, 140, 248, 0.16);
+            --focus-ring: rgba(129, 140, 248, 0.45);
+        }
+        @media (prefers-color-scheme: dark) {
+            :root[data-theme="auto"] {
+                --bg-from: #0b1120;
+                --bg-to: #111c34;
+                --card-bg: rgba(30, 41, 59, 0.82);
+                --card-border: rgba(71, 85, 105, 0.6);
+                --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+                --text: #e2e8f0;
+                --text-muted: #94a3b8;
+                --heading: #f1f5f9;
+                --primary: #818cf8;
+                --primary-strong: #6366f1;
+                --primary-contrast: #0b1120;
+                --accent: #38bdf8;
+                --surface: #1e293b;
+                --surface-2: #172033;
+                --border: #334155;
+                --input-border: #475569;
+                --info-bg: rgba(56, 189, 248, 0.12);
+                --info-border: #38bdf8;
+                --privacy-bg: rgba(129, 140, 248, 0.14);
+                --success: #4ade80;
+                --success-bg: rgba(74, 222, 128, 0.16);
+                --danger: #f87171;
+                --danger-bg: rgba(248, 113, 113, 0.16);
+                --warn: #fbbf24;
+                --warn-bg: rgba(251, 191, 36, 0.16);
+                --highlight: rgba(129, 140, 248, 0.20);
+                --chip-bg: rgba(129, 140, 248, 0.16);
+                --focus-ring: rgba(129, 140, 248, 0.45);
+            }
+        }
+
+        * { box-sizing: border-box; }
+        html { font-family: "Segoe UI", Roboto, system-ui, -apple-system, sans-serif; }
         body {
             margin: 0;
-            padding: 2rem;
+            padding: 2.5rem 1.5rem;
             display: flex;
             justify-content: center;
-            background: linear-gradient(160deg, #f4f4ff, #eef7ff);
+            color: var(--text);
+            background: linear-gradient(160deg, var(--bg-from), var(--bg-to));
+            background-attachment: fixed;
+            min-height: 100vh;
+            transition: background 0.3s ease, color 0.3s ease;
         }
         .card {
-            width: min(760px, 100%);
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(12px);
-            border-radius: 18px;
-            padding: 2rem 2.5rem;
-            box-shadow: 0 20px 45px rgba(73, 99, 175, 0.18);
+            width: min(840px, 100%);
+            background: var(--card-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 2rem 2.5rem 2.5rem;
+            box-shadow: var(--shadow);
         }
-        h1 {
-            margin-top: 0;
-            font-size: 2.1rem;
-            color: #1b3767;
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1.4rem;
         }
-        p.lead {
-            font-size: 1.05rem;
-            color: #3a4a6b;
-            margin-bottom: 1.6rem;
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
         }
+        .brand svg { width: 38px; height: 38px; flex: none; }
+        .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
+        .brand-name { font-weight: 700; font-size: 1.05rem; color: var(--heading); }
+        .brand-org { font-size: 0.78rem; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase; }
+        .theme-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            background: var(--surface);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0.45rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+        }
+        .theme-toggle:hover { border-color: var(--primary); color: var(--primary); }
+        .theme-toggle svg { width: 16px; height: 16px; }
+
         .badge {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            background: #6f4cff;
-            color: #ffffff;
+            background: var(--chip-bg);
+            color: var(--primary);
             border-radius: 999px;
-            padding: 0.35rem 0.9rem;
-            font-size: 0.85rem;
+            padding: 0.3rem 0.85rem;
+            font-size: 0.8rem;
+            font-weight: 600;
             letter-spacing: 0.02em;
-            margin-bottom: 1.2rem;
+            margin-bottom: 1rem;
         }
+        h1 {
+            margin: 0 0 0.6rem;
+            font-size: clamp(1.8rem, 4vw, 2.3rem);
+            color: var(--heading);
+            letter-spacing: -0.01em;
+        }
+        p.lead {
+            font-size: 1.05rem;
+            color: var(--text-muted);
+            margin: 0 0 1.5rem;
+            max-width: 62ch;
+        }
+
+        .info {
+            background: var(--info-bg);
+            border-left: 4px solid var(--info-border);
+            padding: 1rem 1.4rem;
+            border-radius: 12px;
+            margin: 0 0 1.2rem;
+            color: var(--text);
+        }
+        .info code, code {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.05rem 0.4rem;
+            font-size: 0.88em;
+        }
+        .info ul { margin: 0.6rem 0 0 1.1rem; color: var(--text-muted); }
+        .info li { margin-bottom: 0.25rem; }
+
+        .privacy-note {
+            margin: 0 0 1.8rem;
+            font-size: 0.95rem;
+            color: var(--text);
+            background: var(--privacy-bg);
+            border-left: 4px solid var(--primary);
+            padding: 0.8rem 1.1rem;
+            border-radius: 12px;
+            display: flex;
+            gap: 0.6rem;
+            align-items: flex-start;
+        }
+        .privacy-note svg { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--primary); }
+
+        .step-label {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-weight: 600;
+            color: var(--heading);
+            margin: 1.6rem 0 0.6rem;
+        }
+        .step-num {
+            display: inline-grid;
+            place-items: center;
+            width: 1.6rem;
+            height: 1.6rem;
+            border-radius: 50%;
+            background: var(--primary);
+            color: var(--primary-contrast);
+            font-size: 0.85rem;
+            font-weight: 700;
+            flex: none;
+        }
+
         .dropzone {
-            border: 2px dashed #6f4cff;
+            border: 2px dashed var(--primary);
             border-radius: 14px;
             padding: 2rem;
             text-align: center;
-            transition: border-color 0.25s ease, background 0.25s ease;
-            background: rgba(111, 76, 255, 0.06);
+            transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.2s ease;
+            background: var(--privacy-bg);
+            cursor: pointer;
         }
+        .dropzone:hover { background: var(--highlight); }
         .dropzone.dragover {
-            border-color: #35a7ff;
-            background: rgba(53, 167, 255, 0.08);
+            border-color: var(--accent);
+            background: var(--info-bg);
+            box-shadow: 0 0 0 4px var(--focus-ring);
         }
-        .dropzone p {
-            margin: 0.6rem 0 0;
-            color: #47506d;
+        .dropzone:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 4px var(--focus-ring);
         }
-        #sheetSelectWrap {
-            display: none;
-            margin-top: 1.6rem;
-        }
-        #sheetSelectWrap label {
-            font-weight: 600;
-            color: #2a3a60;
-            margin-bottom: 0.4rem;
-            display: block;
-        }
-        input[type="file"] {
-            display: none;
-        }
+        .dropzone p { margin: 0.7rem 0 0; color: var(--text-muted); }
+        .dropzone .hint { font-size: 0.85rem; margin-top: 0.3rem; }
+        input[type="file"] { display: none; }
+
         .btn {
-            background: #6f4cff;
-            color: #ffffff;
+            background: var(--primary);
+            color: var(--primary-contrast);
             border: none;
             border-radius: 12px;
             padding: 0.8rem 1.6rem;
             font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
-        }
-        .btn:disabled {
-            opacity: 0.55;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
         }
         .btn:not(:disabled):hover {
             transform: translateY(-2px);
-            box-shadow: 0 14px 30px rgba(111, 76, 255, 0.28);
+            background: var(--primary-strong);
+            box-shadow: 0 14px 30px var(--focus-ring);
         }
+        .btn:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--focus-ring); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+        .btn-secondary:not(:disabled):hover { background: var(--highlight); color: var(--primary); }
+
         .grid {
-            display: grid;
+            display: none;
             gap: 1.2rem;
-            margin-top: 1.6rem;
+            margin-top: 0.4rem;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         }
-        label {
-            font-weight: 600;
-            color: #2a3a60;
-            margin-bottom: 0.4rem;
-            display: block;
-        }
-        select {
+        #sheetSelectWrap { display: none; }
+        label { font-weight: 600; color: var(--heading); margin-bottom: 0.4rem; display: block; }
+        select, input[type="number"] {
             width: 100%;
             padding: 0.7rem;
             border-radius: 10px;
-            border: 1px solid #c8d0f4;
-            background: #ffffff;
+            border: 1px solid var(--input-border);
+            background: var(--surface);
             font-size: 1rem;
-            color: #1b3767;
+            color: var(--text);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
-        input[type="number"] {
-            width: 100%;
-            padding: 0.7rem;
-            border-radius: 10px;
-            border: 1px solid #c8d0f4;
-            font-size: 1rem;
-            color: #1b3767;
-            background: #ffffff;
-        }
-        input[type="number"]:focus,
-        select:focus {
+        input[type="number"]:focus, select:focus {
             outline: none;
-            border-color: #6f4cff;
-            box-shadow: 0 0 0 3px rgba(111, 76, 255, 0.18);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--focus-ring);
         }
-        .privacy-note {
-            margin-top: 1rem;
-            font-size: 0.95rem;
-            color: #2e3b55;
-            background: rgba(53, 167, 255, 0.12);
-            border-left: 4px solid #6f4cff;
-            padding: 0.8rem 1rem;
-            border-radius: 10px;
+
+        .preview-wrap { display: none; margin-top: 1.6rem; }
+        .preview-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
         }
-        .info {
-            background: rgba(255, 255, 255, 0.7);
-            border-left: 4px solid #35a7ff;
-            padding: 1rem 1.5rem;
+        .preview-head h3 { margin: 0; font-size: 1rem; color: var(--heading); }
+        .preview-head .muted { font-size: 0.85rem; color: var(--text-muted); }
+        .table-scroll {
+            overflow-x: auto;
+            border: 1px solid var(--border);
             border-radius: 12px;
-            margin: 1.8rem 0;
-            color: #2e3b55;
+            background: var(--surface);
         }
-        ul {
-            margin: 0.6rem 0 0 1.1rem;
-            color: #465374;
+        table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+        th, td {
+            text-align: left;
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+            color: var(--text);
         }
+        thead th {
+            position: sticky;
+            top: 0;
+            background: var(--surface-2);
+            color: var(--heading);
+            font-weight: 600;
+        }
+        tbody tr:last-child td { border-bottom: none; }
+        td.col-lon, th.col-lon { background: var(--highlight); }
+        td.col-lat, th.col-lat { background: var(--info-bg); }
+        td.col-new { font-variant-numeric: tabular-nums; }
+        .pill { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600; }
+        .pill-yes { background: var(--success-bg); color: var(--success); }
+        .pill-no { background: var(--danger-bg); color: var(--danger); }
+        .pill-skip { background: var(--warn-bg); color: var(--warn); }
+
+        .actions { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 1.8rem; align-items: center; }
         .status {
-            margin-top: 1.5rem;
+            margin-top: 1.2rem;
             font-weight: 600;
-            color: #1b3767;
+            color: var(--heading);
+            min-height: 1.2rem;
         }
+
+        .summary { display: none; margin-top: 1.8rem; }
+        .summary h3 { margin: 0 0 0.8rem; font-size: 1.05rem; color: var(--heading); }
+        .stat-grid {
+            display: grid;
+            gap: 0.9rem;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        }
+        .stat {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 0.9rem 1rem;
+        }
+        .stat .num { font-size: 1.7rem; font-weight: 700; line-height: 1; }
+        .stat .lbl { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; }
+        .stat.total .num { color: var(--heading); }
+        .stat.yes .num { color: var(--success); }
+        .stat.no .num { color: var(--danger); }
+        .stat.skip .num { color: var(--warn); }
+        .rate-bar {
+            height: 10px;
+            border-radius: 999px;
+            background: var(--danger-bg);
+            overflow: hidden;
+            margin-top: 1rem;
+            display: flex;
+        }
+        .rate-bar .ok { background: var(--success); }
+        .rate-bar .skipped { background: var(--warn); }
+
         .footer {
-            margin-top: 2.2rem;
+            margin-top: 2.4rem;
+            padding-top: 1.4rem;
+            border-top: 1px solid var(--border);
             font-size: 0.9rem;
-            color: #6173a7;
+            color: var(--text-muted);
             text-align: center;
+            line-height: 1.6;
         }
-        .footer a {
-            color: #6f4cff;
-            font-weight: 600;
-            text-decoration: none;
+        .footer a { color: var(--primary); font-weight: 600; text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+        .footer .links { margin-top: 0.5rem; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+
+        .sr-only {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
         }
-        .footer a:hover {
-            text-decoration: underline;
-        }
-        #selectionPanel {
-            display: none;
-        }
+
         @media (max-width: 640px) {
-            body { padding: 1.4rem; }
-            .card { padding: 1.6rem; }
+            body { padding: 1.4rem 1rem; }
+            .card { padding: 1.5rem 1.4rem 2rem; }
         }
     </style>
 </head>
 <body>
-    <div class="card">
-        <div class="badge">Vibe Coded</div>
-        <h1>Converta &ndash; Coordinate Cleaner</h1>
+    <main class="card">
+        <div class="topbar">
+            <div class="brand">
+                <svg viewBox="0 0 32 32" aria-hidden="true">
+                    <path fill="var(--primary)" d="M16 2C10.5 2 6 6.5 6 12c0 7 10 18 10 18s10-11 10-18c0-5.5-4.5-10-10-10z"/>
+                    <circle cx="16" cy="12" r="4" fill="#fff"/>
+                </svg>
+                <span class="brand-text">
+                    <span class="brand-name">Converta</span>
+                    <span class="brand-org">a maplumi tool</span>
+                </span>
+            </div>
+            <button type="button" class="theme-toggle" id="themeToggle" aria-label="Switch color theme">
+                <span id="themeIcon" aria-hidden="true"></span>
+                <span id="themeLabel">Auto</span>
+            </button>
+        </div>
+
+        <div class="badge">📍 Coordinate Cleaner</div>
+        <h1>Turn messy coordinates into clean decimal degrees</h1>
         <p class="lead">
-            Ever struggled with Excel files containing longitude and latitude values in every format imaginable?
-            Converta transforms mixed coordinate formats into clean decimal degrees&mdash;no install required.
+            Excel files love mixing longitude and latitude formats — DMS, degrees-minutes, decimal degrees,
+            stray symbols. Converta normalises them all into clean decimal degrees, right in your browser.
+            No install, no upload.
         </p>
 
         <div class="info">
             <strong>Understands your messy inputs:</strong>
             <ul>
                 <li>Decimal degrees: <code>45.123N</code>, <code>-120.456</code>, <code>120.456W</code></li>
-                <li>DMS and DM: <code>45&deg;30'15"N</code>, <code>120&deg;30'W</code></li>
+                <li>DMS &amp; DM: <code>45&deg;30'15"N</code>, <code>120&deg;30'W</code></li>
                 <li>Plain numbers and strings</li>
             </ul>
-            Rows that fail to convert are flagged in <code>Convert_Status</code>.
+            Each row is flagged in <code>Convert_Status</code> — <code>Yes</code>, <code>No</code>, or <code>Skipped</code>.
         </div>
 
         <p class="privacy-note">
-            Everything happens in your browser. Files never leave your device&mdash;perfect when you need a quick, private clean-up.
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M12 2l8 4v6c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V6l8-4z" stroke-linejoin="round"/>
+            </svg>
+            <span>Everything happens locally in your browser. Files never leave your device — ideal for a quick, private clean-up.</span>
         </p>
 
-        <label for="fileInput">1. Upload your Excel file</label>
-        <div class="dropzone" id="dropzone">
-            <button class="btn" id="browseBtn">Choose File</button>
+        <div class="step-label"><span class="step-num">1</span> Upload your Excel file</div>
+        <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Upload Excel file — click, press Enter, or drop a file here">
+            <span class="btn btn-secondary" id="browseBtn" aria-hidden="true">Choose file</span>
             <input type="file" id="fileInput" accept=".xlsx,.xls" />
             <p id="fileName">No file selected</p>
+            <p class="hint">…or drag &amp; drop an <code>.xlsx</code> / <code>.xls</code> file here</p>
         </div>
 
         <div id="sheetSelectWrap">
-            <label for="sheetSelect">2. Worksheet tab</label>
-            <select id="sheetSelect"></select>
+            <div class="step-label"><span class="step-num">2</span> Worksheet tab</div>
+            <select id="sheetSelect" aria-label="Worksheet tab"></select>
         </div>
 
+        <div class="step-label" id="columnStepLabel" style="display:none;"><span class="step-num">3</span> Choose your columns</div>
         <div class="grid" id="selectionPanel">
             <div>
-                <label for="longitudeSelect">3. Longitude / X column</label>
+                <label for="longitudeSelect">Longitude / X column</label>
                 <select id="longitudeSelect"></select>
             </div>
             <div>
-                <label for="latitudeSelect">4. Latitude / Y column</label>
+                <label for="latitudeSelect">Latitude / Y column</label>
                 <select id="latitudeSelect"></select>
             </div>
             <div>
-                <label for="skipRowsInput">Optional: rows to skip at the top</label>
+                <label for="skipRowsInput">Rows to skip at the top</label>
                 <input type="number" id="skipRowsInput" min="0" value="0" />
             </div>
         </div>
 
-        <button class="btn" id="convertBtn" disabled>Convert &amp; Download</button>
-        <div class="status" id="statusMsg"></div>
+        <div class="preview-wrap" id="previewWrap">
+            <div class="preview-head">
+                <h3>Data preview</h3>
+                <span class="muted" id="previewMeta"></span>
+            </div>
+            <div class="table-scroll">
+                <table id="previewTable">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn" id="convertBtn" disabled>Convert</button>
+            <button class="btn btn-secondary" id="downloadBtn" disabled>Download workbook</button>
+        </div>
+        <div class="status" id="statusMsg" role="status" aria-live="polite"></div>
+
+        <section class="summary" id="summaryPanel" aria-live="polite">
+            <h3>Conversion summary</h3>
+            <div class="stat-grid">
+                <div class="stat total"><div class="num" id="statTotal">0</div><div class="lbl">Data rows</div></div>
+                <div class="stat yes"><div class="num" id="statYes">0</div><div class="lbl">Converted</div></div>
+                <div class="stat no"><div class="num" id="statNo">0</div><div class="lbl">Failed</div></div>
+                <div class="stat skip"><div class="num" id="statSkip">0</div><div class="lbl">Skipped</div></div>
+            </div>
+            <div class="rate-bar" id="rateBar" aria-hidden="true">
+                <span class="ok" id="rateOk"></span>
+                <span class="skipped" id="rateSkip"></span>
+            </div>
+
+            <div class="preview-wrap" id="resultPreviewWrap" style="display:block; margin-top:1.6rem;">
+                <div class="preview-head">
+                    <h3>Result preview</h3>
+                    <span class="muted" id="resultMeta"></span>
+                </div>
+                <div class="table-scroll">
+                    <table id="resultTable">
+                        <thead></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
 
         <div class="footer">
-            Converted file will use the original name with a date stamp &mdash; perfect for versioning on GitHub Pages.<br />
-            <a href="https://github.com/ayiemba/Converta" target="_blank" rel="noopener noreferrer">View the source on GitHub</a>
+            Output keeps the original filename with a date stamp — easy to version and share.
+            <div class="links">
+                <a href="https://github.com/maplumi/converta" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
+                <a href="https://github.com/maplumi/converta/issues" target="_blank" rel="noopener noreferrer">Report an issue</a>
+                <a href="https://maplumi.com" target="_blank" rel="noopener noreferrer">maplumi</a>
+            </div>
         </div>
-    </div>
+    </main>
 
     <script>
+        const PREVIEW_LIMIT = 8;
+
         const fileInput = document.getElementById('fileInput');
         const browseBtn = document.getElementById('browseBtn');
         const fileNameEl = document.getElementById('fileName');
@@ -250,19 +554,60 @@
         const sheetSelect = document.getElementById('sheetSelect');
         const sheetSelectWrap = document.getElementById('sheetSelectWrap');
         const selectionPanel = document.getElementById('selectionPanel');
+        const columnStepLabel = document.getElementById('columnStepLabel');
         const skipRowsInput = document.getElementById('skipRowsInput');
         const convertBtn = document.getElementById('convertBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
         const statusMsg = document.getElementById('statusMsg');
+        const previewWrap = document.getElementById('previewWrap');
+        const previewMeta = document.getElementById('previewMeta');
+        const previewTable = document.getElementById('previewTable');
+        const summaryPanel = document.getElementById('summaryPanel');
+        const resultTable = document.getElementById('resultTable');
+        const resultMeta = document.getElementById('resultMeta');
 
         let rawRows = [];
         let originalSheetName = '';
         let originalFileName = '';
         let columnIndexMap = {};
+        let orderedColumns = [];
         let currentSkipCount = 0;
         let loadedWorkbook = null;
+        let preparedWorkbook = null;
+        let preparedOutputName = '';
 
-        browseBtn.addEventListener('click', () => fileInput.click());
+        /* ---------- Theme ---------- */
+        const themeToggle = document.getElementById('themeToggle');
+        const themeLabel = document.getElementById('themeLabel');
+        const themeIcon = document.getElementById('themeIcon');
+        const THEME_ORDER = ['auto', 'light', 'dark'];
+        const THEME_ICON = { auto: '🌓', light: '☀️', dark: '🌙' };
+        const THEME_TEXT = { auto: 'Auto', light: 'Light', dark: 'Dark' };
 
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            themeIcon.textContent = THEME_ICON[theme];
+            themeLabel.textContent = THEME_TEXT[theme];
+            try { localStorage.setItem('converta-theme', theme); } catch (e) { /* ignore */ }
+        }
+        let savedTheme = 'auto';
+        try { savedTheme = localStorage.getItem('converta-theme') || 'auto'; } catch (e) { /* ignore */ }
+        applyTheme(THEME_ORDER.includes(savedTheme) ? savedTheme : 'auto');
+        themeToggle.addEventListener('click', () => {
+            const current = document.documentElement.getAttribute('data-theme') || 'auto';
+            const next = THEME_ORDER[(THEME_ORDER.indexOf(current) + 1) % THEME_ORDER.length];
+            applyTheme(next);
+        });
+
+        /* ---------- File handling ---------- */
+        browseBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+        dropzone.addEventListener('click', () => fileInput.click());
+        dropzone.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                fileInput.click();
+            }
+        });
         fileInput.addEventListener('change', handleFile);
         dropzone.addEventListener('dragover', (event) => {
             event.preventDefault();
@@ -279,32 +624,44 @@
         });
 
         convertBtn.addEventListener('click', convertWorkbook);
-        if (skipRowsInput) {
-            skipRowsInput.addEventListener('input', () => {
-                if (!rawRows.length) {
-                    return;
-                }
-                updateColumnsForSkip();
-                statusMsg.textContent = `Using row ${currentSkipCount + 1} as the header.`;
-            });
+        downloadBtn.addEventListener('click', downloadPrepared);
+        skipRowsInput.addEventListener('input', () => {
+            if (!rawRows.length) { return; }
+            resetResults();
+            updateColumnsForSkip();
+        });
+        longitudeSelect.addEventListener('change', () => { resetResults(); renderPreview(); });
+        latitudeSelect.addEventListener('change', () => { resetResults(); renderPreview(); });
+
+        function resetResults() {
+            summaryPanel.style.display = 'none';
+            downloadBtn.disabled = true;
+            preparedWorkbook = null;
         }
 
         function handleFile() {
             const file = fileInput.files[0];
-            if (!file) {
-                return;
-            }
+            if (!file) { return; }
             convertBtn.disabled = true;
+            resetResults();
             selectionPanel.style.display = 'none';
+            columnStepLabel.style.display = 'none';
+            previewWrap.style.display = 'none';
             sheetSelectWrap.style.display = 'none';
             sheetSelect.innerHTML = '';
             originalFileName = file.name.replace(/\.[^.]+$/, '');
             fileNameEl.textContent = file.name;
-            statusMsg.textContent = 'Reading workbook...';
+            statusMsg.textContent = 'Reading workbook…';
             const reader = new FileReader();
             reader.onload = (event) => {
-                const data = new Uint8Array(event.target.result);
-                loadedWorkbook = XLSX.read(data, { type: 'array' });
+                try {
+                    const data = new Uint8Array(event.target.result);
+                    loadedWorkbook = XLSX.read(data, { type: 'array' });
+                } catch (err) {
+                    statusMsg.textContent = 'Could not read that file — is it a valid Excel workbook?';
+                    convertBtn.disabled = true;
+                    return;
+                }
                 if (!loadedWorkbook.SheetNames.length) {
                     statusMsg.textContent = 'Workbook has no sheets.';
                     convertBtn.disabled = true;
@@ -317,7 +674,7 @@
                     option.textContent = sheetName;
                     sheetSelect.appendChild(option);
                 });
-                sheetSelectWrap.style.display = 'block';
+                sheetSelectWrap.style.display = loadedWorkbook.SheetNames.length > 1 ? 'block' : 'none';
                 const firstSheet = loadedWorkbook.SheetNames[0];
                 sheetSelect.value = firstSheet;
                 loadSheet(firstSheet);
@@ -325,73 +682,57 @@
             reader.onerror = () => {
                 statusMsg.textContent = 'Failed to read file.';
                 convertBtn.disabled = true;
-                selectionPanel.style.display = 'none';
-                sheetSelectWrap.style.display = 'none';
             };
             reader.readAsArrayBuffer(file);
         }
 
         sheetSelect.addEventListener('change', () => {
-            if (!loadedWorkbook) {
-                return;
-            }
+            if (!loadedWorkbook) { return; }
+            resetResults();
             loadSheet(sheetSelect.value);
         });
 
         function loadSheet(sheetName) {
-            if (!loadedWorkbook || !sheetName) {
-                return;
-            }
+            if (!loadedWorkbook || !sheetName) { return; }
             const worksheet = loadedWorkbook.Sheets[sheetName];
             if (!worksheet) {
                 statusMsg.textContent = 'Selected worksheet not found.';
                 convertBtn.disabled = true;
-                selectionPanel.style.display = 'none';
                 return;
             }
-            rawRows = XLSX.utils.sheet_to_json(worksheet, {
-                header: 1,
-                defval: '',
-                blankrows: false,
-            });
+            rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', blankrows: false });
             originalSheetName = sheetName;
-            if (skipRowsInput) {
-                skipRowsInput.value = '0';
-            }
+            skipRowsInput.value = '0';
             currentSkipCount = 0;
             if (!rawRows.length) {
                 statusMsg.textContent = 'Sheet is empty.';
                 convertBtn.disabled = true;
+                previewWrap.style.display = 'none';
                 selectionPanel.style.display = 'none';
+                columnStepLabel.style.display = 'none';
                 return;
             }
             updateColumnsForSkip();
-            statusMsg.textContent = 'Sheet loaded. Pick your columns and convert!';
-            convertBtn.disabled = false;
         }
 
         function updateColumnsForSkip() {
-            if (!rawRows.length) {
-                return;
-            }
-            const requestedSkip = skipRowsInput ? parseInt(skipRowsInput.value, 10) || 0 : 0;
+            if (!rawRows.length) { return; }
+            const requestedSkip = parseInt(skipRowsInput.value, 10) || 0;
             const maxSkip = Math.max(rawRows.length - 1, 0);
             const boundedSkip = Math.min(Math.max(requestedSkip, 0), maxSkip);
-            if (skipRowsInput && requestedSkip !== boundedSkip) {
-                skipRowsInput.value = String(boundedSkip);
-            }
+            if (requestedSkip !== boundedSkip) { skipRowsInput.value = String(boundedSkip); }
             currentSkipCount = boundedSkip;
 
             const headerRow = rawRows[currentSkipCount] ? [...rawRows[currentSkipCount]] : [];
             const fallbackLength = rawRows.reduce((max, row) => Math.max(max, row.length), 0);
             const baseLength = headerRow.length || fallbackLength;
 
-            const columns = [];
+            orderedColumns = [];
             columnIndexMap = {};
             for (let idx = 0; idx < baseLength; idx += 1) {
                 const rawValue = headerRow[idx] !== undefined ? headerRow[idx] : '';
                 const trimmed = String(rawValue ?? '').trim();
-                let name = trimmed || `Column ${idx + 1}`;
+                const name = trimmed || `Column ${idx + 1}`;
                 let uniqueName = name;
                 let counter = 2;
                 while (Object.prototype.hasOwnProperty.call(columnIndexMap, uniqueName)) {
@@ -399,30 +740,31 @@
                     counter += 1;
                 }
                 columnIndexMap[uniqueName] = idx;
-                columns.push(uniqueName);
+                orderedColumns.push(uniqueName);
             }
 
-            if (!columns.length) {
+            if (!orderedColumns.length) {
                 longitudeSelect.innerHTML = '';
                 latitudeSelect.innerHTML = '';
                 convertBtn.disabled = true;
                 selectionPanel.style.display = 'none';
-                statusMsg.textContent = 'No columns found in selected header row.';
+                columnStepLabel.style.display = 'none';
+                previewWrap.style.display = 'none';
+                statusMsg.textContent = 'No columns found in the selected header row.';
                 return;
             }
 
-            const lonGuess = guessColumn(columns, ['lon', 'lng', 'long', 'x']);
-            const latGuess = guessColumn(columns, ['lat', 'latitude', 'y']);
+            const lonGuess = guessColumn(orderedColumns, ['lon', 'lng', 'long', 'x']);
+            const latGuess = guessColumn(orderedColumns, ['lat', 'latitude', 'y']);
 
-            const previousLon = longitudeSelect.value;
-            const previousLat = latitudeSelect.value;
-
-            fillSelect(longitudeSelect, columns, previousLon, lonGuess);
-            fillSelect(latitudeSelect, columns, previousLat, latGuess);
+            fillSelect(longitudeSelect, orderedColumns, longitudeSelect.value, lonGuess);
+            fillSelect(latitudeSelect, orderedColumns, latitudeSelect.value, latGuess);
 
             selectionPanel.style.display = 'grid';
+            columnStepLabel.style.display = 'flex';
             convertBtn.disabled = false;
-            statusMsg.textContent = `Using row ${currentSkipCount + 1} as the header.`;
+            renderPreview();
+            statusMsg.textContent = `Header row ${currentSkipCount + 1} — pick your columns, then convert.`;
         }
 
         function fillSelect(select, options, preferredValue, guessValue) {
@@ -440,106 +782,134 @@
             } else if (options.length) {
                 select.selectedIndex = 0;
             }
-            if (!options.length) {
-                select.selectedIndex = -1;
-            }
         }
 
         function guessColumn(columns, keywords) {
             const lowerColumns = columns.map((value) => value.toLowerCase());
             for (const keyword of keywords) {
                 const index = lowerColumns.findIndex((value) => value.includes(keyword));
-                if (index !== -1) {
-                    return columns[index];
-                }
+                if (index !== -1) { return columns[index]; }
             }
             return columns[0] || '';
         }
 
+        /* ---------- Preview ---------- */
+        function cellText(value) {
+            if (value === null || value === undefined || value === '') { return ''; }
+            return String(value);
+        }
+
+        function renderPreview() {
+            if (!orderedColumns.length || !rawRows.length) {
+                previewWrap.style.display = 'none';
+                return;
+            }
+            const lonIdx = columnIndexMap[longitudeSelect.value];
+            const latIdx = columnIndexMap[latitudeSelect.value];
+            const dataRows = rawRows.slice(currentSkipCount + 1);
+            const shown = dataRows.slice(0, PREVIEW_LIMIT);
+
+            const thead = previewTable.querySelector('thead');
+            const tbody = previewTable.querySelector('tbody');
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            const headRow = document.createElement('tr');
+            orderedColumns.forEach((col) => {
+                const th = document.createElement('th');
+                th.textContent = col;
+                const idx = columnIndexMap[col];
+                if (idx === lonIdx) { th.classList.add('col-lon'); th.title = 'Longitude column'; }
+                if (idx === latIdx) { th.classList.add('col-lat'); th.title = 'Latitude column'; }
+                headRow.appendChild(th);
+            });
+            thead.appendChild(headRow);
+
+            shown.forEach((row) => {
+                const tr = document.createElement('tr');
+                orderedColumns.forEach((col) => {
+                    const idx = columnIndexMap[col];
+                    const td = document.createElement('td');
+                    td.textContent = cellText(Array.isArray(row) ? row[idx] : '');
+                    if (idx === lonIdx) { td.classList.add('col-lon'); }
+                    if (idx === latIdx) { td.classList.add('col-lat'); }
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+
+            if (!shown.length) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = orderedColumns.length || 1;
+                td.style.color = 'var(--text-muted)';
+                td.textContent = 'No data rows below the header.';
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+            }
+
+            previewMeta.textContent = `${dataRows.length} data row${dataRows.length === 1 ? '' : 's'} · showing first ${Math.min(PREVIEW_LIMIT, shown.length)}`;
+            previewWrap.style.display = 'block';
+        }
+
+        /* ---------- Coordinate parsing ---------- */
         function parseCoordinate(value) {
-            if (value === null || value === undefined) {
-                return null;
-            }
-            if (typeof value === 'number' && Number.isFinite(value)) {
-                return value;
-            }
+            if (value === null || value === undefined) { return null; }
+            if (typeof value === 'number' && Number.isFinite(value)) { return value; }
 
             const raw = String(value).trim();
-            if (!raw) {
-                return null;
-            }
+            if (!raw) { return null; }
 
-            const normalized = raw
-                .replace(/[,]/g, '.')
-                .replace(/\s+/g, ' ')
-                .toUpperCase();
+            const normalized = raw.replace(/[,]/g, '.').replace(/\s+/g, ' ').toUpperCase();
 
-            if (/^[+-]?\d+(\.\d+)?$/.test(normalized)) {
-                return parseFloat(normalized);
-            }
+            if (/^[+-]?\d+(\.\d+)?$/.test(normalized)) { return parseFloat(normalized); }
 
-            const dmsRegex = /([+-]?\d+(?:\.\d+)?)\s*\u00B0?\s*(\d+(?:\.\d+)?)?'?\s*(\d+(?:\.\d+)?)?"?\s*([NSEW])?/;
+            const dmsRegex = /([+-]?\d+(?:\.\d+)?)\s*°?\s*(\d+(?:\.\d+)?)?'?\s*(\d+(?:\.\d+)?)?"?\s*([NSEW])?/;
             const match = normalized.match(dmsRegex);
             if (match) {
                 const deg = parseFloat(match[1]);
                 const min = match[2] ? parseFloat(match[2]) : 0;
                 const sec = match[3] ? parseFloat(match[3]) : 0;
                 const direction = match[4] || '';
-                if (!Number.isFinite(deg) || !Number.isFinite(min) || !Number.isFinite(sec)) {
-                    return null;
-                }
+                if (!Number.isFinite(deg) || !Number.isFinite(min) || !Number.isFinite(sec)) { return null; }
                 let result = Math.abs(deg) + min / 60 + sec / 3600;
-                if (deg < 0) {
-                    result = -result;
-                }
-                if (direction === 'S' || direction === 'W') {
-                    result = -Math.abs(result);
-                }
-                if (direction === 'N' || direction === 'E') {
-                    result = Math.abs(result);
-                }
+                if (deg < 0) { result = -result; }
+                if (direction === 'S' || direction === 'W') { result = -Math.abs(result); }
+                if (direction === 'N' || direction === 'E') { result = Math.abs(result); }
                 return result;
             }
 
             const parts = normalized.match(/([+-]?\d+(?:\.\d+)?)/g);
             if (parts) {
                 const directionMatch = normalized.match(/[NSEW]/);
-                let deg = parseFloat(parts[0]);
-                let min = parts[1] ? parseFloat(parts[1]) : 0;
-                let sec = parts[2] ? parseFloat(parts[2]) : 0;
-                if (!Number.isFinite(deg)) {
-                    return null;
-                }
+                const deg = parseFloat(parts[0]);
+                const min = parts[1] ? parseFloat(parts[1]) : 0;
+                const sec = parts[2] ? parseFloat(parts[2]) : 0;
+                if (!Number.isFinite(deg)) { return null; }
                 let result = Math.abs(deg) + min / 60 + sec / 3600;
-                if (deg < 0) {
-                    result = -result;
-                }
-                if (directionMatch && (directionMatch[0] === 'S' || directionMatch[0] === 'W')) {
-                    result = -Math.abs(result);
-                }
-                if (directionMatch && (directionMatch[0] === 'N' || directionMatch[0] === 'E')) {
-                    result = Math.abs(result);
-                }
+                if (deg < 0) { result = -result; }
+                if (directionMatch && (directionMatch[0] === 'S' || directionMatch[0] === 'W')) { result = -Math.abs(result); }
+                if (directionMatch && (directionMatch[0] === 'N' || directionMatch[0] === 'E')) { result = Math.abs(result); }
                 return result;
             }
 
             return null;
         }
 
+        /* ---------- Conversion ---------- */
         function convertWorkbook() {
             if (!rawRows.length) {
                 statusMsg.textContent = 'Load an Excel file first.';
                 return;
             }
-
             const lonCol = longitudeSelect.value;
             const latCol = latitudeSelect.value;
             if (!lonCol || !latCol) {
                 statusMsg.textContent = 'Pick both longitude and latitude columns.';
                 return;
             }
-
-            if (!Object.prototype.hasOwnProperty.call(columnIndexMap, lonCol) || !Object.prototype.hasOwnProperty.call(columnIndexMap, latCol)) {
+            if (!Object.prototype.hasOwnProperty.call(columnIndexMap, lonCol) ||
+                !Object.prototype.hasOwnProperty.call(columnIndexMap, latCol)) {
                 statusMsg.textContent = 'Selected columns are not available after applying the skip.';
                 return;
             }
@@ -553,19 +923,19 @@
             const latConvertedIndex = baseLength + 1;
             const statusIndex = baseLength + 2;
 
+            let countYes = 0, countNo = 0, countSkip = 0;
+
             const output = rawRows.map((row, index) => {
                 const clone = Array.isArray(row) ? [...row] : [];
-                while (clone.length <= statusIndex) {
-                    clone.push('');
-                }
+                while (clone.length <= statusIndex) { clone.push(''); }
 
                 if (index < headerIndex) {
                     clone[lonConvertedIndex] = '';
                     clone[latConvertedIndex] = '';
                     clone[statusIndex] = 'Skipped';
+                    countSkip += 1;
                     return clone;
                 }
-
                 if (index === headerIndex) {
                     clone[lonConvertedIndex] = 'Longitude_Converted';
                     clone[latConvertedIndex] = 'Latitude_Converted';
@@ -573,14 +943,17 @@
                     return clone;
                 }
 
-                const lonRaw = clone[lonIndex];
-                const latRaw = clone[latIndex];
-                const lonDecimal = parseCoordinate(lonRaw);
-                const latDecimal = parseCoordinate(latRaw);
-
+                const lonDecimal = parseCoordinate(clone[lonIndex]);
+                const latDecimal = parseCoordinate(clone[latIndex]);
                 clone[lonConvertedIndex] = lonDecimal !== null ? Number(lonDecimal.toFixed(6)) : '';
                 clone[latConvertedIndex] = latDecimal !== null ? Number(latDecimal.toFixed(6)) : '';
-                clone[statusIndex] = lonDecimal !== null && latDecimal !== null ? 'Yes' : 'No';
+                if (lonDecimal !== null && latDecimal !== null) {
+                    clone[statusIndex] = 'Yes';
+                    countYes += 1;
+                } else {
+                    clone[statusIndex] = 'No';
+                    countNo += 1;
+                }
                 return clone;
             });
 
@@ -589,10 +962,81 @@
             XLSX.utils.book_append_sheet(newWorkbook, worksheet, originalSheetName || 'Converted');
 
             const dateStamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-            const outputName = (originalFileName || 'converta') + '_converted_' + dateStamp + '.xlsx';
+            preparedWorkbook = newWorkbook;
+            preparedOutputName = (originalFileName || 'converta') + '_converted_' + dateStamp + '.xlsx';
 
-            XLSX.writeFile(newWorkbook, outputName);
-            statusMsg.textContent = 'Done! Downloaded ' + outputName;
+            renderSummary(countYes, countNo, countSkip, output, {
+                lonConvertedIndex, latConvertedIndex, statusIndex, headerIndex,
+            });
+            downloadBtn.disabled = false;
+            const dataTotal = countYes + countNo;
+            statusMsg.textContent = `Converted ${countYes} of ${dataTotal} row${dataTotal === 1 ? '' : 's'}. Review below, then download.`;
+            summaryPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function renderSummary(yes, no, skip, output, idx) {
+            const total = yes + no;
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statYes').textContent = yes;
+            document.getElementById('statNo').textContent = no;
+            document.getElementById('statSkip').textContent = skip;
+
+            const okPct = total ? (yes / total) * 100 : 0;
+            document.getElementById('rateOk').style.width = okPct + '%';
+            document.getElementById('rateSkip').style.width = '0%';
+            document.getElementById('rateBar').title = `${Math.round(okPct)}% converted`;
+
+            // Result preview: header + first data rows
+            const thead = resultTable.querySelector('thead');
+            const tbody = resultTable.querySelector('tbody');
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            const headerRow = output[idx.headerIndex] || [];
+            const colCount = headerRow.length;
+            const headTr = document.createElement('tr');
+            for (let c = 0; c < colCount; c += 1) {
+                const th = document.createElement('th');
+                th.textContent = cellText(headerRow[c]);
+                if (c === idx.lonConvertedIndex || c === idx.latConvertedIndex || c === idx.statusIndex) {
+                    th.classList.add('col-new');
+                    th.style.color = 'var(--primary)';
+                }
+                headTr.appendChild(th);
+            }
+            thead.appendChild(headTr);
+
+            const dataRows = output.slice(idx.headerIndex + 1);
+            dataRows.slice(0, PREVIEW_LIMIT).forEach((row) => {
+                const tr = document.createElement('tr');
+                for (let c = 0; c < colCount; c += 1) {
+                    const td = document.createElement('td');
+                    if (c === idx.statusIndex) {
+                        const val = cellText(row[c]);
+                        const span = document.createElement('span');
+                        span.className = 'pill ' + (val === 'Yes' ? 'pill-yes' : val === 'Skipped' ? 'pill-skip' : 'pill-no');
+                        span.textContent = val;
+                        td.appendChild(span);
+                    } else {
+                        td.textContent = cellText(row[c]);
+                        if (c === idx.lonConvertedIndex || c === idx.latConvertedIndex) { td.classList.add('col-new'); }
+                    }
+                    tr.appendChild(td);
+                }
+                tbody.appendChild(tr);
+            });
+
+            resultMeta.textContent = `${dataRows.length} row${dataRows.length === 1 ? '' : 's'} · showing first ${Math.min(PREVIEW_LIMIT, dataRows.length)}`;
+            summaryPanel.style.display = 'block';
+        }
+
+        function downloadPrepared() {
+            if (!preparedWorkbook) {
+                statusMsg.textContent = 'Run a conversion first.';
+                return;
+            }
+            XLSX.writeFile(preparedWorkbook, preparedOutputName);
+            statusMsg.textContent = 'Downloaded ' + preparedOutputName;
         }
     </script>
 </body>

@@ -6,6 +6,10 @@ import os
 import re
 import datetime
 
+# ---------------------------------------------------------------------------
+# Coordinate parsing
+# ---------------------------------------------------------------------------
+
 def dms_to_decimal(degree, minute, second, direction):
     """
     Converts coordinates from Degrees, Minutes, Seconds (DMS) format to Decimal Degrees (DD) format.
@@ -23,6 +27,7 @@ def dms_to_decimal(degree, minute, second, direction):
     if direction in ['S', 'W']:
         decimal *= -1
     return round(decimal, 7)
+
 
 def parse_coordinate(coord):
     """
@@ -81,6 +86,7 @@ def parse_coordinate(coord):
 
     return None
 
+
 def convert_coordinates(df, x_col, y_col):
     lon_converted = df[x_col].apply(parse_coordinate)
     lat_converted = df[y_col].apply(parse_coordinate)
@@ -92,13 +98,18 @@ def convert_coordinates(df, x_col, y_col):
     ]
     return df
 
+
 def process_file(filepath, x_col, y_col):
     df = pd.read_excel(filepath)
     df = convert_coordinates(df, x_col, y_col)
     date_stamp = datetime.datetime.now().strftime('%Y%m%d')
     out_path = os.path.splitext(filepath)[0] + f'_converted_{date_stamp}.xlsx'
     df.to_excel(out_path, index=False)
-    return out_path
+    total = len(df)
+    converted = int((df['Convert_Status'] == 'Yes').sum())
+    failed = total - converted
+    return out_path, total, converted, failed
+
 
 def detect_coordinate_columns(columns):
     # Ensure all column names are strings
@@ -116,53 +127,92 @@ def detect_coordinate_columns(columns):
     lon_default = lon_candidates[0] if lon_candidates else columns[1] if len(columns) > 1 else columns[0] if columns else ''
     return lat_default, lon_default
 
+
+# ---------------------------------------------------------------------------
+# Theme / palette
+# ---------------------------------------------------------------------------
+
+COLORS = {
+    'bg': '#f1f5fb',
+    'card': '#ffffff',
+    'primary': '#4f46e5',
+    'primary_active': '#4338ca',
+    'on_primary': '#ffffff',
+    'text': '#1e293b',
+    'muted': '#64748b',
+    'heading': '#1e2a52',
+    'border': '#d8def0',
+    'info_bg': '#eef2ff',
+    'accent': '#0ea5e9',
+    'success': '#16a34a',
+    'danger': '#dc2626',
+}
+
+FONT_FAMILY = 'Segoe UI'
+
+
+# ---------------------------------------------------------------------------
+# UI callbacks
+# ---------------------------------------------------------------------------
+
+def set_status(message, kind='info'):
+    color = {
+        'info': COLORS['muted'],
+        'success': COLORS['success'],
+        'error': COLORS['danger'],
+    }.get(kind, COLORS['muted'])
+    status_var.set(message)
+    status_label.configure(foreground=color)
+
+
 def select_file():
     file_path = filedialog.askopenfilename(filetypes=[('Excel Files', '*.xlsx;*.xls')])
-    if file_path:
-        entry_file.delete(0, tk.END)
-        entry_file.insert(0, file_path)
-        try:
-            df = pd.read_excel(file_path)
-            columns = list(df.columns)
-            combo_x['values'] = columns
-            combo_y['values'] = columns
-            lat_default, lon_default = detect_coordinate_columns(columns)
-            combo_x.set(lon_default)
-            combo_y.set(lat_default)
-        except Exception as e:
-            messagebox.showerror('Error', f'Failed to read Excel file: {e}')
-
-def update_column_options(filepath):
+    if not file_path:
+        return
+    entry_file_var.set(file_path)
     try:
-        df = pd.read_excel(filepath)
-        columns = df.columns.tolist()
+        df = pd.read_excel(file_path)
+        columns = [str(c) for c in df.columns]
         combo_x['values'] = columns
         combo_y['values'] = columns
-        combo_x.current(0)
-        combo_y.current(1)
+        lat_default, lon_default = detect_coordinate_columns(columns)
+        combo_x.set(lon_default)
+        combo_y.set(lat_default)
+        convert_btn.state(['!disabled'])
+        set_status(f'Loaded {os.path.basename(file_path)} — {len(columns)} columns, {len(df)} rows.', 'info')
     except Exception as e:
-        messagebox.showerror('Error', str(e))
+        convert_btn.state(['disabled'])
+        messagebox.showerror('Error', f'Failed to read Excel file: {e}')
+        set_status('Could not read that file.', 'error')
+
 
 def run_conversion():
-    file_path = entry_file.get()
+    file_path = entry_file_var.get()
     x_col = combo_x.get()
     y_col = combo_y.get()
     if not (file_path and x_col and y_col):
-        messagebox.showerror('Error', 'Please provide all inputs.')
+        messagebox.showerror('Error', 'Please choose a file and both coordinate columns.')
+        set_status('Missing inputs.', 'error')
         return
     try:
-        out_path = process_file(file_path, x_col, y_col)
-        messagebox.showinfo('Success', f'Converted file saved as:\n{out_path}')
+        set_status('Converting…', 'info')
+        root.update_idletasks()
+        out_path, total, converted, failed = process_file(file_path, x_col, y_col)
+        set_status(f'Done — {converted} of {total} rows converted, {failed} failed.', 'success')
+        messagebox.showinfo(
+            'Success',
+            f'Converted {converted} of {total} rows ({failed} failed).\n\nSaved as:\n{out_path}'
+        )
     except Exception as e:
         messagebox.showerror('Error', str(e))
+        set_status('Conversion failed.', 'error')
+
 
 def close_app():
-    # Release resources if needed (e.g., clear DataFrames, etc.)
-    # For pandas DataFrames, you can use del or set to None
-    # Example: del df or df = None
     root.destroy()
 
-def center_window(window, width=400, height=180):
+
+def center_window(window, width, height):
     window.update_idletasks()
     screen_width = window.winfo_screenwidth()
     screen_height = window.winfo_screenheight()
@@ -170,49 +220,121 @@ def center_window(window, width=400, height=180):
     y = (screen_height // 2) - (height // 2)
     window.geometry(f'{width}x{height}+{x}+{y}')
 
-root = tk.Tk()
-root.title('Excel Coordinate Converter')
-center_window(root, 540, 300)
 
-main_frame = tk.Frame(root, padx=20, pady=20)
-main_frame.pack(fill='both', expand=True)
+# ---------------------------------------------------------------------------
+# UI construction
+# ---------------------------------------------------------------------------
 
-info_text = (
-    'Supported coordinate formats:\n'
-    '- Decimal Degrees: 45.123N, -120.456, 120.456W\n'
-    '- Degrees, Minutes, Seconds (DMS): 45°30\'15"N, 120°30\'15"W\n'
-    '- Degrees and Minutes: 45°30\'N, 120°30\'W\n'
-    '- Plain numbers: 45.123, -120.456\n'
-    'Rows that cannot be converted will be marked in the output.'
-)
+def main():
+    global root, status_var, status_label, entry_file_var, combo_x, combo_y, convert_btn
 
-info_label = tk.Label(main_frame, text=info_text, justify='left', fg='navy')
-info_label.grid(row=0, column=0, columnspan=3, sticky='w', pady=(0, 12))
+    root = tk.Tk()
+    root.title('Converta — Coordinate Cleaner')
+    root.configure(bg=COLORS['bg'])
+    center_window(root, 600, 560)
+    root.minsize(560, 520)
 
-# Excel file input
-file_label = tk.Label(main_frame, text='Excel File:')
-file_label.grid(row=1, column=0, sticky='e', pady=8)
-entry_file = tk.Entry(main_frame, width=40)
-entry_file.grid(row=1, column=1, padx=5)
-browse_btn = tk.Button(main_frame, text='Browse', command=select_file)
-browse_btn.grid(row=1, column=2, padx=5)
+    style = ttk.Style(root)
+    try:
+        style.theme_use('clam')
+    except tk.TclError:
+        pass
 
-# X coordinate dropdown
-x_label = tk.Label(main_frame, text='Longitude Column:')
-x_label.grid(row=2, column=0, sticky='e', pady=8)
-combo_x = ttk.Combobox(main_frame, state='readonly', width=37)
-combo_x.grid(row=2, column=1, padx=5)
+    style.configure('TFrame', background=COLORS['bg'])
+    style.configure('Card.TFrame', background=COLORS['card'])
+    style.configure('TLabel', background=COLORS['card'], foreground=COLORS['text'], font=(FONT_FAMILY, 10))
+    style.configure('Bg.TLabel', background=COLORS['bg'], foreground=COLORS['text'], font=(FONT_FAMILY, 10))
+    style.configure('Brand.TLabel', background=COLORS['bg'], foreground=COLORS['heading'], font=(FONT_FAMILY, 18, 'bold'))
+    style.configure('Org.TLabel', background=COLORS['bg'], foreground=COLORS['muted'], font=(FONT_FAMILY, 9))
+    style.configure('Heading.TLabel', background=COLORS['card'], foreground=COLORS['heading'], font=(FONT_FAMILY, 10, 'bold'))
+    style.configure('Info.TLabel', background=COLORS['info_bg'], foreground=COLORS['text'], font=(FONT_FAMILY, 9))
+    style.configure('Status.TLabel', background=COLORS['bg'], foreground=COLORS['muted'], font=(FONT_FAMILY, 9))
 
-# Y coordinate dropdown
-y_label = tk.Label(main_frame, text='Latitude Column:')
-y_label.grid(row=3, column=0, sticky='e', pady=8)
-combo_y = ttk.Combobox(main_frame, state='readonly', width=37)
-combo_y.grid(row=3, column=1, padx=5)
+    style.configure('TEntry', fieldbackground=COLORS['card'], bordercolor=COLORS['border'], padding=6)
+    style.configure('TCombobox', fieldbackground=COLORS['card'], bordercolor=COLORS['border'], padding=6)
+    style.map('TCombobox', fieldbackground=[('readonly', COLORS['card'])])
 
-# Buttons
-convert_btn = tk.Button(main_frame, text='Convert', command=run_conversion, width=15)
-convert_btn.grid(row=4, column=1, pady=18, sticky='e')
-close_btn = tk.Button(main_frame, text='Close', command=close_app, width=15)
-close_btn.grid(row=4, column=2, pady=18, padx=5, sticky='w')
+    style.configure('Primary.TButton', background=COLORS['primary'], foreground=COLORS['on_primary'],
+                    font=(FONT_FAMILY, 10, 'bold'), borderwidth=0, focusthickness=0, padding=(18, 9))
+    style.map('Primary.TButton',
+              background=[('active', COLORS['primary_active']), ('disabled', '#b9bdf0')],
+              foreground=[('disabled', '#eef0ff')])
+    style.configure('Secondary.TButton', background=COLORS['card'], foreground=COLORS['primary'],
+                    font=(FONT_FAMILY, 10, 'bold'), borderwidth=1, bordercolor=COLORS['primary'], padding=(18, 9))
+    style.map('Secondary.TButton', background=[('active', COLORS['info_bg'])])
+    style.configure('Browse.TButton', background=COLORS['info_bg'], foreground=COLORS['primary'],
+                    font=(FONT_FAMILY, 9, 'bold'), borderwidth=0, padding=(12, 6))
+    style.map('Browse.TButton', background=[('active', '#e0e6ff')])
 
-root.mainloop()
+    # --- Header / brand bar ---
+    header = ttk.Frame(root, style='TFrame', padding=(24, 20, 24, 8))
+    header.pack(fill='x')
+
+    brand_canvas = tk.Canvas(header, width=40, height=40, bg=COLORS['bg'], highlightthickness=0)
+    brand_canvas.create_oval(6, 4, 34, 32, fill=COLORS['primary'], outline='')
+    brand_canvas.create_polygon(20, 36, 11, 22, 29, 22, fill=COLORS['primary'], outline='')
+    brand_canvas.create_oval(15, 11, 25, 21, fill='#ffffff', outline='')
+    brand_canvas.grid(row=0, column=0, rowspan=2, padx=(0, 12))
+    ttk.Label(header, text='Converta', style='Brand.TLabel').grid(row=0, column=1, sticky='w')
+    ttk.Label(header, text='Coordinate Cleaner · a maplumi tool', style='Org.TLabel').grid(row=1, column=1, sticky='w')
+
+    # --- Card body ---
+    card = ttk.Frame(root, style='Card.TFrame', padding=24)
+    card.pack(fill='both', expand=True, padx=24, pady=(8, 12))
+    card.columnconfigure(1, weight=1)
+
+    info_text = (
+        'Supported formats:\n'
+        '   • Decimal degrees:  45.123N,  -120.456,  120.456W\n'
+        "   • DMS:  45°30'15\"N,  120°30'15\"W\n"
+        "   • Degrees & minutes:  45°30'N,  120°30'W\n"
+        '   • Plain numbers:  45.123,  -120.456\n'
+        'Rows that cannot be converted are flagged in the output.'
+    )
+    info_frame = tk.Frame(card, bg=COLORS['info_bg'], highlightbackground=COLORS['primary'],
+                          highlightthickness=0, bd=0)
+    info_frame.grid(row=0, column=0, columnspan=3, sticky='ew', pady=(0, 18))
+    tk.Frame(info_frame, bg=COLORS['primary'], width=4).pack(side='left', fill='y')
+    ttk.Label(info_frame, text=info_text, style='Info.TLabel', justify='left').pack(
+        side='left', fill='x', padx=14, pady=12)
+
+    # Excel file input
+    ttk.Label(card, text='Excel file', style='Heading.TLabel').grid(row=1, column=0, sticky='w', pady=(2, 4))
+    entry_file_var = tk.StringVar()
+    entry_file = ttk.Entry(card, textvariable=entry_file_var)
+    entry_file.grid(row=2, column=0, columnspan=2, sticky='ew', padx=(0, 8))
+    browse_btn = ttk.Button(card, text='Browse…', style='Browse.TButton', command=select_file)
+    browse_btn.grid(row=2, column=2, sticky='e')
+
+    # Longitude column
+    ttk.Label(card, text='Longitude / X column', style='Heading.TLabel').grid(
+        row=3, column=0, sticky='w', pady=(16, 4))
+    combo_x = ttk.Combobox(card, state='readonly')
+    combo_x.grid(row=4, column=0, columnspan=3, sticky='ew')
+
+    # Latitude column
+    ttk.Label(card, text='Latitude / Y column', style='Heading.TLabel').grid(
+        row=5, column=0, sticky='w', pady=(16, 4))
+    combo_y = ttk.Combobox(card, state='readonly')
+    combo_y.grid(row=6, column=0, columnspan=3, sticky='ew')
+
+    # Buttons
+    button_row = ttk.Frame(card, style='Card.TFrame')
+    button_row.grid(row=7, column=0, columnspan=3, sticky='ew', pady=(26, 0))
+    button_row.columnconfigure(0, weight=1)
+    convert_btn = ttk.Button(button_row, text='Convert', style='Primary.TButton', command=run_conversion)
+    convert_btn.grid(row=0, column=1, padx=(0, 10))
+    convert_btn.state(['disabled'])
+    close_btn = ttk.Button(button_row, text='Close', style='Secondary.TButton', command=close_app)
+    close_btn.grid(row=0, column=2)
+
+    # --- Status bar ---
+    status_var = tk.StringVar(value='Choose an Excel file to get started.')
+    status_label = ttk.Label(root, textvariable=status_var, style='Status.TLabel', anchor='w')
+    status_label.pack(fill='x', padx=26, pady=(0, 14))
+
+    root.mainloop()
+
+
+if __name__ == '__main__':
+    main()

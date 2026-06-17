@@ -1,23 +1,32 @@
 # Converta
 
-![Vibe Coded](https://img.shields.io/badge/vibe-coded-blueviolet?style=for-the-badge)
+![Made by maplumi](https://img.shields.io/badge/made%20by-maplumi-4f46e5?style=for-the-badge)
+![License: MIT](https://img.shields.io/badge/license-MIT-0ea5e9?style=for-the-badge)
+![Runs in browser](https://img.shields.io/badge/runs%20in-your%20browser-16a34a?style=for-the-badge)
 
-Ever struggled with Excel files containing longitude and latitude values in every format imaginable? Converta is a user-friendly, minimal tool that effortlessly transforms mixed coordinate formats into decimal degrees, making your data instantly ready for mapping, analysis, or sharing.
+Ever struggled with Excel files containing longitude and latitude values in every format imaginable? **Converta** is a friendly, minimal tool that transforms mixed coordinate formats into clean decimal degrees — making your data instantly ready for mapping, analysis, or sharing.
 
 ![Converta UI Screenshot](converta.png)
 
+> Dark mode and full preview, captured live:
+
+![Converta dark mode](converta-dark.png)
+
 ## What Converta Does
 
-- **Upload** your Excel file (.xlsx, .xls)
-- **Autodetect** longitude and latitude columns (you can adjust if needed)
+- **Upload** your Excel file (`.xlsx`, `.xls`) — or drag &amp; drop it
+- **Pick the worksheet** when a workbook has several tabs
+- **Autodetect** longitude and latitude columns (adjust if needed)
+- **Preview your data** before converting, with the chosen lon/lat columns highlighted
 - **Convert** coordinates to decimal degrees
-- **Output** a new Excel file with:
+- **See a summary** of how many rows converted, failed, or were skipped
+- **Download** a new Excel file with:
   - `Longitude_Converted`
   - `Latitude_Converted`
-  - `Convert_Status` ("Yes" when both coordinates convert, "No" or "Skipped" when they do not)
+  - `Convert_Status` (`Yes` when both coordinates convert, `No` when they do not, `Skipped` for rows above the header)
 - **Date-stamped** output filename for easy tracking
 - **Skip** the first *n* rows in the web version when you want to ignore headers or notes
-- **Modern UI** with clear instructions and a Close button
+- **Light / dark / auto theme** that remembers your choice
 
 ## Supported Coordinate Formats
 
@@ -28,81 +37,60 @@ Converta automatically handles:
 - Degrees and Minutes: `45°30'N`, `120°30'W`
 - Plain numbers: `45.123`, `-120.456`
 
-Rows that cannot be converted are marked with `Convert_Status = No`, and rows you skip are marked `Convert_Status = Skipped` in the output.
+Rows that cannot be converted are marked `Convert_Status = No`, and rows you skip are marked `Convert_Status = Skipped`.
 
-## Requirements
+## Web Version (recommended)
+
+- Use Converta online at **[maplumi.github.io/converta](https://maplumi.github.io/converta/)**.
+- Choose your Excel file, pick the longitude and latitude columns, and optionally enter how many leading rows to skip.
+- **All parsing happens in your browser** — no files are uploaded or stored anywhere.
+- Review the live data preview and the conversion summary, then download the converted workbook with a date-stamped filename.
+- A link back to the source code is included on the page for easy forking and enhancements.
+
+## Desktop Version
+
+A self-contained Python/Tkinter app (`main.py`) provides the same conversion offline.
+
+### Requirements
 
 - Python 3.8 or newer
-- pandas
+- [pandas](https://pandas.pydata.org/) and [openpyxl](https://openpyxl.readthedocs.io/) (openpyxl reads/writes `.xlsx`)
+- Tkinter (bundled with most Python installers; on Debian/Ubuntu install `python3-tk`)
 
-## Setup
+### Setup
 
-1. [Download Python](https://www.python.org/downloads/)
-2. Open a command prompt and run:
+```sh
+pip install pandas openpyxl
+```
 
-   ```sh
-   pip install pandas
-   ```
+### Run it
 
-## Adding Python to PATH
+On Windows, double-click `converta.bat`, or from any terminal:
 
-### Windows
+```sh
+python main.py
+```
 
-1. During Python installation, check the box that says **Add Python to PATH**.
-2. If Python is already installed:
-   - Open **Control Panel > System > Advanced system settings > Environment Variables**.
-   - Under **System variables**, find and select `Path`, then click **Edit**.
-   - Click **New** and add the path to your Python installation (e.g., `C:\Users\YourName\AppData\Local\Programs\Python\Python38`).
-   - Click **OK** to save.
-   - Restart your command prompt.
+Then:
 
-### Linux
+1. Click **Browse…** to select your Excel file
+2. Confirm or adjust the detected coordinate columns
+3. Click **Convert**
+4. Find your converted file in the same folder, with a date-stamped name and a quick conversion summary
+5. Click **Close** to exit
 
-1. Open your terminal.
-2. Add Python to your PATH by editing your shell profile (e.g., `.bashrc`, `.zshrc`):
+## Project Layout
 
-   ```sh
-   export PATH="$PATH:/usr/local/bin/python3"
-   ```
+| Path              | What it is                                         |
+| ----------------- | -------------------------------------------------- |
+| `docs/index.html` | The browser app served via GitHub Pages            |
+| `main.py`         | The desktop Tkinter app + the shared parsing logic |
+| `converta.bat`    | Windows convenience launcher for the desktop app   |
 
-3. Save the file and run:
+## Contributing
 
-   ```sh
-   source ~/.bashrc
-   ```
-
-   (or the appropriate profile file for your shell)
-
-4. Verify Python is on your PATH:
-
-   ```sh
-   python --version
-   ```
-
-## Web Version (GitHub Pages)
-
-- Use Converta online at [ayiemba.github.io/Converta](https://ayiemba.github.io/Converta/).
-- Choose your Excel file, pick the longitude and latitude columns, and optionally enter how many leading rows to skip.
-- All parsing happens in your browser—no files are uploaded or stored anywhere.
-- Download the converted workbook with date-stamped filename and the same `Convert_Status` columns as the desktop app.
-- Link back to the source code is included on the page for easy forking and enhancements.
-
-## How to Use Converta (Desktop)
-
-1. Double-click `converta.bat` (included) or run:
-
-   ```sh
-   python main.py
-   ```
-
-2. In the app:
-   - Click **Browse** to select your Excel file
-   - Confirm or adjust the detected coordinate columns
-   - Review the supported formats in the UI
-   - Click **Convert**
-   - Find your converted file in the same folder, with a date-stamped name
-   - Click **Close** to exit
+Issues and pull requests are welcome at [github.com/maplumi/converta](https://github.com/maplumi/converta).
 
 ## License
 
-MIT
+[MIT](LICENSE)

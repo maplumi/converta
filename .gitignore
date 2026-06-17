@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Converted output workbooks
+*_converted_*.xlsx
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
