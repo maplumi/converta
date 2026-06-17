@@ -357,6 +357,24 @@
             font-weight: 600;
             color: var(--heading);
             min-height: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+        }
+        .spinner {
+            display: none;
+            width: 16px;
+            height: 16px;
+            flex: none;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            border-top-color: var(--primary);
+            animation: spin 0.7s linear infinite;
+        }
+        .status.busy .spinner { display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+            .spinner { animation-duration: 1.6s; }
         }
 
         .summary { display: none; margin-top: 1.8rem; }
@@ -503,7 +521,9 @@
             <button class="btn" id="convertBtn" disabled>Convert</button>
             <button class="btn btn-secondary" id="downloadBtn" disabled>Download workbook</button>
         </div>
-        <div class="status" id="statusMsg" role="status" aria-live="polite"></div>
+        <div class="status" id="statusMsg" role="status" aria-live="polite">
+            <span class="spinner" id="statusSpinner" aria-hidden="true"></span><span id="statusText"></span>
+        </div>
 
         <section class="summary" id="summaryPanel" aria-live="polite">
             <h3>Conversion summary</h3>
@@ -559,6 +579,12 @@
         const convertBtn = document.getElementById('convertBtn');
         const downloadBtn = document.getElementById('downloadBtn');
         const statusMsg = document.getElementById('statusMsg');
+        const statusText = document.getElementById('statusText');
+
+        function setStatus(message, busy = false) {
+            statusText.textContent = message;
+            statusMsg.classList.toggle('busy', !!busy);
+        }
         const previewWrap = document.getElementById('previewWrap');
         const previewMeta = document.getElementById('previewMeta');
         const previewTable = document.getElementById('previewTable');
@@ -623,7 +649,21 @@
             }
         });
 
-        convertBtn.addEventListener('click', convertWorkbook);
+        convertBtn.addEventListener('click', () => {
+            setStatus('Converting…', true);
+            convertBtn.disabled = true;
+            downloadBtn.disabled = true;
+            // Yield a frame so the spinner paints before the synchronous conversion loop.
+            requestAnimationFrame(() => setTimeout(() => {
+                try {
+                    convertWorkbook();
+                } catch (err) {
+                    setStatus('Conversion failed: ' + err.message);
+                } finally {
+                    convertBtn.disabled = false;
+                }
+            }, 0));
+        });
         downloadBtn.addEventListener('click', downloadPrepared);
         skipRowsInput.addEventListener('input', () => {
             if (!rawRows.length) { return; }
@@ -651,19 +691,19 @@
             sheetSelect.innerHTML = '';
             originalFileName = file.name.replace(/\.[^.]+$/, '');
             fileNameEl.textContent = file.name;
-            statusMsg.textContent = 'Reading workbook…';
+            setStatus('Reading workbook…', true);
             const reader = new FileReader();
             reader.onload = (event) => {
                 try {
                     const data = new Uint8Array(event.target.result);
                     loadedWorkbook = XLSX.read(data, { type: 'array' });
                 } catch (err) {
-                    statusMsg.textContent = 'Could not read that file — is it a valid Excel workbook?';
+                    setStatus('Could not read that file — is it a valid Excel workbook?');
                     convertBtn.disabled = true;
                     return;
                 }
                 if (!loadedWorkbook.SheetNames.length) {
-                    statusMsg.textContent = 'Workbook has no sheets.';
+                    setStatus('Workbook has no sheets.');
                     convertBtn.disabled = true;
                     return;
                 }
@@ -680,7 +720,7 @@
                 loadSheet(firstSheet);
             };
             reader.onerror = () => {
-                statusMsg.textContent = 'Failed to read file.';
+                setStatus('Failed to read file.');
                 convertBtn.disabled = true;
             };
             reader.readAsArrayBuffer(file);
@@ -696,7 +736,7 @@
             if (!loadedWorkbook || !sheetName) { return; }
             const worksheet = loadedWorkbook.Sheets[sheetName];
             if (!worksheet) {
-                statusMsg.textContent = 'Selected worksheet not found.';
+                setStatus('Selected worksheet not found.');
                 convertBtn.disabled = true;
                 return;
             }
@@ -705,7 +745,7 @@
             skipRowsInput.value = '0';
             currentSkipCount = 0;
             if (!rawRows.length) {
-                statusMsg.textContent = 'Sheet is empty.';
+                setStatus('Sheet is empty.');
                 convertBtn.disabled = true;
                 previewWrap.style.display = 'none';
                 selectionPanel.style.display = 'none';
@@ -750,7 +790,7 @@
                 selectionPanel.style.display = 'none';
                 columnStepLabel.style.display = 'none';
                 previewWrap.style.display = 'none';
-                statusMsg.textContent = 'No columns found in the selected header row.';
+                setStatus('No columns found in the selected header row.');
                 return;
             }
 
@@ -764,7 +804,7 @@
             columnStepLabel.style.display = 'flex';
             convertBtn.disabled = false;
             renderPreview();
-            statusMsg.textContent = `Header row ${currentSkipCount + 1} — pick your columns, then convert.`;
+            setStatus(`Header row ${currentSkipCount + 1} — pick your columns, then convert.`);
         }
 
         function fillSelect(select, options, preferredValue, guessValue) {
@@ -899,18 +939,18 @@
         /* ---------- Conversion ---------- */
         function convertWorkbook() {
             if (!rawRows.length) {
-                statusMsg.textContent = 'Load an Excel file first.';
+                setStatus('Load an Excel file first.');
                 return;
             }
             const lonCol = longitudeSelect.value;
             const latCol = latitudeSelect.value;
             if (!lonCol || !latCol) {
-                statusMsg.textContent = 'Pick both longitude and latitude columns.';
+                setStatus('Pick both longitude and latitude columns.');
                 return;
             }
             if (!Object.prototype.hasOwnProperty.call(columnIndexMap, lonCol) ||
                 !Object.prototype.hasOwnProperty.call(columnIndexMap, latCol)) {
-                statusMsg.textContent = 'Selected columns are not available after applying the skip.';
+                setStatus('Selected columns are not available after applying the skip.');
                 return;
             }
 
@@ -970,7 +1010,7 @@
             });
             downloadBtn.disabled = false;
             const dataTotal = countYes + countNo;
-            statusMsg.textContent = `Converted ${countYes} of ${dataTotal} row${dataTotal === 1 ? '' : 's'}. Review below, then download.`;
+            setStatus(`Converted ${countYes} of ${dataTotal} row${dataTotal === 1 ? '' : 's'}. Review below, then download.`);
             summaryPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
@@ -1032,11 +1072,11 @@
 
         function downloadPrepared() {
             if (!preparedWorkbook) {
-                statusMsg.textContent = 'Run a conversion first.';
+                setStatus('Run a conversion first.');
                 return;
             }
             XLSX.writeFile(preparedWorkbook, preparedOutputName);
-            statusMsg.textContent = 'Downloaded ' + preparedOutputName;
+            setStatus('Downloaded ' + preparedOutputName);
         }
     </script>
 </body>

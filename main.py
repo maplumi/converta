@@ -5,6 +5,8 @@ import pandas as pd
 import os
 import re
 import datetime
+import queue
+import threading
 
 # ---------------------------------------------------------------------------
 # Coordinate parsing
@@ -165,25 +167,75 @@ def set_status(message, kind='info'):
     status_label.configure(foreground=color)
 
 
+# Background work (reading / converting Excel) runs on worker threads so the
+# window stays responsive and the progress bar can animate. Workers never touch
+# widgets directly — they push a callable onto this queue, which the Tk main
+# loop drains via pump_ui_queue().
+_ui_queue = queue.Queue()
+
+
+def pump_ui_queue():
+    while True:
+        try:
+            callback = _ui_queue.get_nowait()
+        except queue.Empty:
+            break
+        callback()
+    root.after(80, pump_ui_queue)
+
+
+def post_to_ui(callback):
+    _ui_queue.put(callback)
+
+
+def set_busy(busy, message=None, kind='info'):
+    """Show/hide the activity indicator and lock controls while working."""
+    if message is not None:
+        set_status(message, kind)
+    if busy:
+        progress.grid()
+        progress.start(12)
+        browse_btn.state(['disabled'])
+        convert_btn.state(['disabled'])
+    else:
+        progress.stop()
+        progress.grid_remove()
+        browse_btn.state(['!disabled'])
+        convert_btn.state(['!disabled'] if entry_file_var.get() else ['disabled'])
+
+
 def select_file():
     file_path = filedialog.askopenfilename(filetypes=[('Excel Files', '*.xlsx;*.xls')])
     if not file_path:
         return
     entry_file_var.set(file_path)
-    try:
-        df = pd.read_excel(file_path)
-        columns = [str(c) for c in df.columns]
-        combo_x['values'] = columns
-        combo_y['values'] = columns
-        lat_default, lon_default = detect_coordinate_columns(columns)
-        combo_x.set(lon_default)
-        combo_y.set(lat_default)
-        convert_btn.state(['!disabled'])
-        set_status(f'Loaded {os.path.basename(file_path)} — {len(columns)} columns, {len(df)} rows.', 'info')
-    except Exception as e:
-        convert_btn.state(['disabled'])
-        messagebox.showerror('Error', f'Failed to read Excel file: {e}')
-        set_status('Could not read that file.', 'error')
+    name = os.path.basename(file_path)
+    set_busy(True, f'Reading {name}…')
+
+    def worker():
+        try:
+            df = pd.read_excel(file_path)
+            columns = [str(c) for c in df.columns]
+            lat_default, lon_default = detect_coordinate_columns(columns)
+            row_count = len(df)
+
+            def done():
+                combo_x['values'] = columns
+                combo_y['values'] = columns
+                combo_x.set(lon_default)
+                combo_y.set(lat_default)
+                set_busy(False, f'Loaded {name} — {len(columns)} columns, {row_count} rows.', 'info')
+
+            post_to_ui(done)
+        except Exception as e:
+            def fail():
+                entry_file_var.set('')
+                set_busy(False, 'Could not read that file.', 'error')
+                messagebox.showerror('Error', f'Failed to read Excel file: {e}')
+
+            post_to_ui(fail)
+
+    threading.Thread(target=worker, daemon=True).start()
 
 
 def run_conversion():
@@ -194,18 +246,28 @@ def run_conversion():
         messagebox.showerror('Error', 'Please choose a file and both coordinate columns.')
         set_status('Missing inputs.', 'error')
         return
-    try:
-        set_status('Converting…', 'info')
-        root.update_idletasks()
-        out_path, total, converted, failed = process_file(file_path, x_col, y_col)
-        set_status(f'Done — {converted} of {total} rows converted, {failed} failed.', 'success')
-        messagebox.showinfo(
-            'Success',
-            f'Converted {converted} of {total} rows ({failed} failed).\n\nSaved as:\n{out_path}'
-        )
-    except Exception as e:
-        messagebox.showerror('Error', str(e))
-        set_status('Conversion failed.', 'error')
+    set_busy(True, 'Converting…')
+
+    def worker():
+        try:
+            out_path, total, converted, failed = process_file(file_path, x_col, y_col)
+
+            def done():
+                set_busy(False, f'Done — {converted} of {total} rows converted, {failed} failed.', 'success')
+                messagebox.showinfo(
+                    'Success',
+                    f'Converted {converted} of {total} rows ({failed} failed).\n\nSaved as:\n{out_path}'
+                )
+
+            post_to_ui(done)
+        except Exception as e:
+            def fail():
+                set_busy(False, 'Conversion failed.', 'error')
+                messagebox.showerror('Error', str(e))
+
+            post_to_ui(fail)
+
+    threading.Thread(target=worker, daemon=True).start()
 
 
 def close_app():
@@ -226,7 +288,8 @@ def center_window(window, width, height):
 # ---------------------------------------------------------------------------
 
 def main():
-    global root, status_var, status_label, entry_file_var, combo_x, combo_y, convert_btn
+    global root, status_var, status_label, entry_file_var, combo_x, combo_y
+    global convert_btn, browse_btn, progress
 
     root = tk.Tk()
     root.title('Converta — Coordinate Cleaner')
@@ -265,6 +328,10 @@ def main():
     style.configure('Browse.TButton', background=COLORS['info_bg'], foreground=COLORS['primary'],
                     font=(FONT_FAMILY, 9, 'bold'), borderwidth=0, padding=(12, 6))
     style.map('Browse.TButton', background=[('active', '#e0e6ff')])
+
+    style.configure('Converta.Horizontal.TProgressbar', troughcolor=COLORS['info_bg'],
+                    background=COLORS['primary'], bordercolor=COLORS['info_bg'],
+                    lightcolor=COLORS['primary'], darkcolor=COLORS['primary'])
 
     # --- Header / brand bar ---
     header = ttk.Frame(root, style='TFrame', padding=(24, 20, 24, 8))
@@ -328,11 +395,17 @@ def main():
     close_btn = ttk.Button(button_row, text='Close', style='Secondary.TButton', command=close_app)
     close_btn.grid(row=0, column=2)
 
+    # Activity indicator — hidden until a read/convert is in progress
+    progress = ttk.Progressbar(card, mode='indeterminate', style='Converta.Horizontal.TProgressbar')
+    progress.grid(row=8, column=0, columnspan=3, sticky='ew', pady=(16, 0))
+    progress.grid_remove()
+
     # --- Status bar ---
     status_var = tk.StringVar(value='Choose an Excel file to get started.')
     status_label = ttk.Label(root, textvariable=status_var, style='Status.TLabel', anchor='w')
     status_label.pack(fill='x', padx=26, pady=(0, 14))
 
+    root.after(80, pump_ui_queue)
     root.mainloop()
 
 
